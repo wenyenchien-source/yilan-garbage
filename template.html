@@ -1,0 +1,523 @@
+<title>宜蘭垃圾車幾點到</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="宜蘭縣垃圾車清運點與表定時間查詢">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Azeret+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column, a truck-yellow header band, big tab buttons, list of stop rows with oversized times */
+:root{
+  --bg:#eef2f0;            /* cool street-grey with a green bias */
+  --surface:#ffffff;
+  --ink:#14302b;           /* deep road-sign green */
+  --muted:#4f6862;
+  --line:#cdd8d4;
+  --truck:#f5c400;         /* Taiwan garbage-truck yellow */
+  --truck-ink:#1d1a05;
+  --go:#0f6b52;            /* next / upcoming */
+  --go-soft:#dcefe8;
+  --stop:#a3361f;          /* 停收 */
+  --stop-soft:#f7e3dd;
+  --focus:#1f5fd1;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-num:"Azeret Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1a18;--surface:#162623;--ink:#e6efec;--muted:#9db3ad;--line:#2b403b;
+  --truck:#f5c400;--truck-ink:#1d1a05;--go:#4fd1a5;--go-soft:#173a31;--stop:#ff8a6e;--stop-soft:#3a1f19;--focus:#7aa7ff;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1a18;--surface:#162623;--ink:#e6efec;--muted:#9db3ad;--line:#2b403b;
+  --truck:#f5c400;--truck-ink:#1d1a05;--go:#4fd1a5;--go-soft:#173a31;--stop:#ff8a6e;--stop-soft:#3a1f19;--focus:#7aa7ff;color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:18px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--truck)}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+/* header band */
+.band{background:var(--truck);color:var(--truck-ink)}
+.band .wrap{padding-block:18px 16px;display:grid;gap:4px}
+.band h1{margin:0;font-size:1.75rem;font-weight:900;letter-spacing:.02em;text-wrap:balance}
+.today{font-size:1.05rem;font-weight:700}
+.stripe{height:10px;background:repeating-linear-gradient(-45deg,var(--truck) 0 14px,var(--truck-ink) 14px 28px)}
+
+.notice{margin-top:14px;padding:12px 14px;border-radius:var(--r);background:var(--stop-soft);color:var(--stop);font-weight:700}
+.notice small{display:block;font-weight:400;color:var(--ink)}
+
+/* tabs */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px}
+.tab{min-height:56px;border:2px solid var(--line);border-radius:var(--r);background:var(--surface);font-weight:700;font-size:1.05rem;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+section.panel{display:grid;gap:14px;padding-block:8px 24px}
+.hint{color:var(--muted);margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{min-height:52px;padding:0 18px;border-radius:var(--r);border:2px solid var(--ink);background:var(--surface);font-weight:700;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--bg)}
+.btn.small{min-height:44px;padding:0 12px;font-size:.95rem}
+input[type=search],select{width:100%;min-height:56px;padding:0 14px;border:2px solid var(--line);border-radius:var(--r);background:var(--surface)}
+label.lab{font-weight:700;display:block;margin-bottom:6px}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{min-height:48px;min-width:44px;padding:0 10px;border-radius:999px;border:2px solid var(--line);background:var(--surface);font-weight:700;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.off{color:var(--muted);text-decoration:line-through}
+
+/* stop cards & rows */
+.list{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:grid;gap:8px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.card-head > div{min-width:0}
+.name{font-weight:900;font-size:1.2rem;line-height:1.35;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.95rem}
+.when{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.time{font-family:var(--f-num);font-weight:700;font-size:2.1rem;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.9rem;font-weight:700;background:var(--go-soft);color:var(--go)}
+.pill.past{background:var(--line);color:var(--muted)}
+.pill.stop{background:var(--stop-soft);color:var(--stop)}
+.note{font-size:.9rem;color:var(--stop);font-weight:700}
+.star{flex:none;width:52px;height:52px;border-radius:50%;border:2px solid var(--line);background:var(--surface);font-size:1.5rem;cursor:pointer;line-height:1}
+.star[aria-pressed="true"]{background:var(--truck);border-color:var(--truck);color:var(--truck-ink)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+a.btn{display:inline-flex;align-items:center;text-decoration:none;color:inherit}
+
+/* route timeline */
+.timeline{list-style:none;margin:0;padding:0;border-left:4px solid var(--line);margin-left:10px}
+.timeline li{position:relative;padding:10px 0 10px 18px;display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:baseline}
+.timeline li::before{content:"";position:absolute;left:-12px;top:20px;width:16px;height:16px;border-radius:50%;background:var(--surface);border:4px solid var(--line)}
+.timeline li.done{color:var(--muted)}
+.timeline li.done::before{background:var(--line)}
+.timeline li.next::before{background:var(--truck);border-color:var(--ink)}
+.timeline li.next{background:var(--go-soft);border-radius:0 var(--r) var(--r) 0}
+.timeline .t{font-family:var(--f-num);font-weight:700;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.timeline .s{min-width:0;overflow-wrap:anywhere}
+.timeline button.s{all:unset;cursor:pointer;min-width:0;overflow-wrap:anywhere;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px}
+.timeline button.s:focus-visible{outline:3px solid var(--focus)}
+.timeline .badge{grid-column:2;font-size:.85rem;color:var(--stop);font-weight:700}
+
+.nearpick{display:grid;gap:8px}
+.nearopt{display:grid;gap:2px;text-align:left;padding:12px 14px;min-height:56px;border-radius:var(--r);border:2px solid var(--line);background:var(--surface);cursor:pointer}
+.nearopt[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
+.nearopt .rk{font-size:.85rem;font-weight:700;color:var(--go)}
+.nearopt .rn{font-weight:900;font-size:1.1rem}
+.nearopt .rs{color:var(--muted);font-size:.95rem;overflow-wrap:anywhere}
+.timeline li.mine{outline:3px solid var(--truck);outline-offset:-3px;border-radius:0 var(--r) var(--r) 0}
+.timeline .here{grid-column:2;font-size:.85rem;font-weight:700;color:var(--go)}
+
+/* detail sheet */
+.sheet{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet-inner{background:var(--bg);width:100%;max-width:640px;max-height:88vh;overflow:auto;border-radius:20px 20px 0 0;
+  padding-block:18px calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+.week{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.week th,.week td{border-bottom:1px solid var(--line);padding:10px 6px;text-align:left}
+.week td.tm{font-family:var(--f-num);font-weight:700}
+.week tr.is-today{background:var(--go-soft)}
+
+footer{color:var(--muted);font-size:.9rem;padding-block:8px 32px;display:grid;gap:6px;border-top:1px solid var(--line);margin-top:8px}
+footer p{margin:0}
+.empty{background:var(--surface);border:2px dashed var(--line);border-radius:var(--r);padding:18px;display:grid;gap:10px}
+@media (prefers-reduced-motion:no-preference){.tab,.chip,.star,.btn{transition:background .15s,color .15s}}
+</style>
+
+<header class="band">
+  <div class="wrap">
+    <h1>宜蘭垃圾車幾點到</h1>
+    <div class="today" id="today"></div>
+  </div>
+</header>
+<div class="stripe" aria-hidden="true"></div>
+
+<main class="wrap">
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="tabs" role="tablist" aria-label="查詢方式">
+    <button class="tab" role="tab" id="tab-fav" aria-controls="p-fav" aria-selected="false">我的清運點</button>
+    <button class="tab" role="tab" id="tab-find" aria-controls="p-find" aria-selected="false">找清運點</button>
+    <button class="tab" role="tab" id="tab-route" aria-controls="p-route" aria-selected="false">看整條路線</button>
+  </div>
+
+  <section class="panel" id="p-fav" role="tabpanel" aria-labelledby="tab-fav" hidden>
+    <ul class="list" id="favList"></ul>
+  </section>
+
+  <section class="panel" id="p-find" role="tabpanel" aria-labelledby="tab-find" hidden>
+    <div class="row"><button class="btn primary" id="locBtn">用我現在的位置找</button></div>
+    <p class="hint" id="locMsg">或輸入路名、地標，例如「中山路」「宮」「國小」。</p>
+    <div>
+      <label class="lab" for="q">輸入路名或地標</label>
+      <input type="search" id="q" placeholder="例如：中山路" autocomplete="off">
+    </div>
+    <div>
+      <label class="lab" for="townFilter">限定鄉鎮市（可不選）</label>
+      <select id="townFilter"><option value="">全縣</option></select>
+    </div>
+    <ul class="list" id="findList"></ul>
+  </section>
+
+  <section class="panel" id="p-route" role="tabpanel" aria-labelledby="tab-route" hidden>
+    <div class="row"><button class="btn primary" id="nearRouteBtn">用我的位置找最近的路線</button></div>
+    <p class="hint" id="nearMsg" hidden></p>
+    <div class="nearpick" id="nearPick" hidden></div>
+    <div>
+      <label class="lab" for="townSel">鄉鎮市</label>
+      <select id="townSel"></select>
+    </div>
+    <div>
+      <label class="lab" for="routeSel">路線</label>
+      <select id="routeSel"></select>
+    </div>
+    <div>
+      <span class="lab">星期</span>
+      <div class="chips" id="dayChips"></div>
+    </div>
+    <p class="hint" id="routeInfo"></p>
+    <ol class="timeline" id="timeline"></ol>
+  </section>
+
+  <footer>
+    <p><strong>時間都是「表定時間」</strong>，垃圾車實際可能提早或延誤，請提早幾分鐘出門。要看垃圾車即時位置，請用環保局官方「宜蘭垃圾車」App。</p>
+    <p>宜蘭縣每週三、週六停收。學校清運點寒暑假停駛。</p>
+    <p>資料來源：宜蘭縣政府環境保護局「宜蘭垃圾車APP各鄉鎮市清運點資料」，依政府資料開放授權條款第1版使用。資料版本：<span id="dataDate"></span>。</p>
+  </footer>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-inner" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" id="sheetInner"></div>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function(){
+"use strict";
+const D = JSON.parse(document.getElementById('data').textContent);
+const DAYN = ['','一','二','三','四','五','六','日'];
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hm = m => String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+
+// ---- rows ----
+const ROWS = D.stops.map((s,i)=>{
+  const r = D.routes[s[0]];
+  return {i, ri:s[0], seq:s[1], min:s[2], name:s[3], lat:s[4]/1e5, lon:s[5]/1e5, mask:s[6], note:s[7],
+          town:D.towns[r[0]], route:r[1], car:r[2]};
+});
+// points = same place (town+name+coords), may be served by several routes
+const PTS = new Map();
+for (const r of ROWS){
+  const k = r.town+'|'+r.name+'|'+r.lat.toFixed(4)+'|'+r.lon.toFixed(4);
+  let p = PTS.get(k);
+  if(!p){ p = {key:k, town:r.town, name:r.name, lat:r.lat, lon:r.lon, rows:[]}; PTS.set(k,p); }
+  p.rows.push(r); r.pt = p;
+}
+const POINTS = [...PTS.values()];
+const favKey = r => r.town+'|'+r.route+'|'+r.name;   // survives data refresh better than indexes
+
+// ---- time ----
+function nowInfo(){
+  const d = new Date();
+  const wd = d.getDay()===0 ? 7 : d.getDay();
+  return {wd, min:d.getHours()*60+d.getMinutes(), date:d};
+}
+const has = (mask,wd) => (mask>>(wd-1))&1;
+// next scheduled occurrence across rows (today later, or upcoming days)
+function nextOf(rows){
+  const n = nowInfo();
+  for(let i=0;i<8;i++){
+    const wd = ((n.wd-1+i)%7)+1;
+    const cand = rows.filter(r=>has(r.mask,wd) && (i>0 || r.min>=n.min-2)).sort((a,b)=>a.min-b.min);
+    if(cand.length) return {row:cand[0], inDays:i, wd};
+  }
+  return null;
+}
+function todayRows(rows){ const n=nowInfo(); return rows.filter(r=>has(r.mask,n.wd)).sort((a,b)=>a.min-b.min); }
+function whenText(nx){
+  if(!nx) return {t:'—', pill:'<span class="pill past">沒有排班</span>'};
+  const n = nowInfo();
+  if(nx.inDays===0){
+    const diff = nx.row.min - n.min;
+    const p = diff<=0 ? '<span class="pill">表定就是現在</span>'
+            : diff<60 ? `<span class="pill">表定還有 ${diff} 分鐘</span>`
+            : `<span class="pill">今天，表定還有 ${Math.floor(diff/60)} 小時 ${diff%60} 分</span>`;
+    return {t:hm(nx.row.min), pill:p};
+  }
+  const label = nx.inDays===1 ? '明天' : '星期'+DAYN[nx.wd];
+  const todayStop = (n.wd===3||n.wd===6) ? '<span class="pill stop">今天停收</span> ' : '';
+  return {t:hm(nx.row.min), pill:`${todayStop}<span class="pill past">下一次：${label}</span>`};
+}
+
+// ---- favorites (per-viewer convenience) ----
+let favs = [];
+try { favs = JSON.parse(localStorage.getItem('ygt-favs')||'[]'); if(!Array.isArray(favs)) favs=[]; } catch(e){ favs=[]; }
+function saveFavs(){ try{ localStorage.setItem('ygt-favs', JSON.stringify(favs)); }catch(e){} }
+const isFav = k => favs.includes(k);
+function toggleFav(k){ favs = isFav(k) ? favs.filter(x=>x!==k) : favs.concat(k); saveFavs(); renderAll(); }
+
+// ---- header ----
+function renderHeader(){
+  const n = nowInfo(), d = n.date;
+  $('today').textContent = `今天 ${d.getMonth()+1}月${d.getDate()}日 星期${DAYN[n.wd]}　${hm(n.min)}`;
+  const nt = $('notice');
+  if(n.wd===3||n.wd===6){ nt.hidden=false; nt.innerHTML='今天是星期'+DAYN[n.wd]+'，全縣停收垃圾<small>下面顯示的是下一次收運時間。</small>'; }
+  else nt.hidden=true;
+}
+
+// ---- cards ----
+function routeRowsFor(k){ return ROWS.filter(r=>favKey(r)===k); }
+function cardHTML(rows, opts={}){
+  const r0 = rows[0], k = favKey(r0), nx = nextOf(rows), w = whenText(nx);
+  const dist = opts.dist!=null ? ` · 約 ${opts.dist<1000? Math.round(opts.dist/10)*10+' 公尺' : (opts.dist/1000).toFixed(1)+' 公里'}` : '';
+  return `<li class="card">
+    <div class="card-head">
+      <div>
+        <div class="name">${esc(r0.name)}</div>
+        <div class="meta">${esc(r0.town)} · ${esc(r0.route)}${dist}</div>
+      </div>
+      <button class="star" data-fav="${esc(k)}" aria-pressed="${isFav(k)}" aria-label="${isFav(k)?'從我的清運點移除':'加入我的清運點'}">${isFav(k)?'★':'☆'}</button>
+    </div>
+    <div class="when"><span class="time">${w.t}</span>${w.pill}</div>
+    ${r0.note?`<div class="note">注意：${esc(r0.note)}</div>`:''}
+    <div class="actions">
+      <button class="btn small" data-detail="${esc(k)}">每週時間、前後站</button>
+    </div>
+  </li>`;
+}
+
+// ---- 我的清運點 ----
+function renderFav(){
+  const el = $('favList');
+  const groups = favs.map(routeRowsFor).filter(g=>g.length);
+  if(!groups.length){
+    el.innerHTML = `<li class="empty"><strong>還沒有加入清運點</strong>
+      <span>到「找清運點」找到你家附近的點，按右邊的 ☆ 星號，下次打開就會直接顯示在這裡。</span>
+      <div><button class="btn primary" data-goto="find">去找清運點</button></div></li>`;
+    return;
+  }
+  groups.sort((a,b)=>{ const x=nextOf(a), y=nextOf(b); return (x?x.inDays*1440+x.row.min:1e9)-(y?y.inDays*1440+y.row.min:1e9); });
+  el.innerHTML = groups.map(g=>cardHTML(g)).join('');
+}
+
+// ---- 找清運點 ----
+let here = null;
+const norm = s => s.replace(/臺/g,'台').replace(/\s+/g,'').toLowerCase();
+function dist(a,b,c,d){ const R=6371e3,t=Math.PI/180,x=(c-a)*t,y=(d-b)*t; const h=Math.sin(x/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(y/2)**2; return 2*R*Math.asin(Math.sqrt(h)); }
+function renderFind(){
+  const q = norm($('q').value), town = $('townFilter').value, el = $('findList');
+  let list = [];
+  // one card per (point, route)
+  for(const p of POINTS){
+    if(town && p.town!==town) continue;
+    if(q && !norm(p.name).includes(q)) continue;
+    const byRoute = new Map();
+    for(const r of p.rows){ const k=favKey(r); if(!byRoute.has(k)) byRoute.set(k,[]); byRoute.get(k).push(r); }
+    for(const rows of byRoute.values()) list.push({rows, d: here? dist(here.lat,here.lon,p.lat,p.lon):null});
+  }
+  if(!q && !here){
+    el.innerHTML = '';
+    return;
+  }
+  if(here) list.sort((a,b)=>a.d-b.d); else list.sort((a,b)=>a.rows[0].name.length-b.rows[0].name.length);
+  const total = list.length;
+  list = list.slice(0, here && !q ? 8 : 30);
+  el.innerHTML = list.length
+    ? list.map(x=>cardHTML(x.rows,{dist:x.d})).join('') + (total>list.length?`<li class="hint">共 ${total} 筆，只顯示前 ${list.length} 筆，可以再多打幾個字縮小範圍。</li>`:'')
+    : '<li class="empty">找不到符合的清運點，試試只打路名的一部分，例如「中山」。</li>';
+}
+$('q').addEventListener('input', renderFind);
+$('townFilter').addEventListener('change', renderFind);
+// one location shared by both tabs
+function locate(msgEl, fallbackText, done){
+  msgEl.hidden = false;
+  if(!('geolocation' in navigator)){ msgEl.textContent='這支手機或瀏覽器不支援定位，'+fallbackText; return; }
+  msgEl.textContent='正在取得位置…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    here = {lat:pos.coords.latitude, lon:pos.coords.longitude};
+    done();
+  }, ()=>{
+    msgEl.textContent='沒辦法取得位置（可能沒有開啟定位權限），'+fallbackText;
+  }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+}
+$('locBtn').addEventListener('click', ()=>{
+  locate($('locMsg'), '請改用輸入路名或地標。', ()=>{
+    $('locMsg').textContent='已依距離排序，最近的在最上面。';
+    renderFind();
+  });
+});
+
+// ---- nearest routes ----
+let nearList = [], pickedKey = null;
+function nearestRoutes(n){
+  const best = new Map();   // route index -> closest stop on that route
+  for(const r of ROWS){
+    const d = dist(here.lat,here.lon,r.lat,r.lon);
+    const b = best.get(r.ri);
+    if(!b || d<b.d) best.set(r.ri,{ri:r.ri,row:r,d});
+  }
+  return [...best.values()].sort((a,b)=>a.d-b.d).slice(0,n);
+}
+const fmtDist = d => d<1000 ? '約 '+Math.round(d/10)*10+' 公尺' : '約 '+(d/1000).toFixed(1)+' 公里';
+function pickRoute(k){
+  const x = nearList[k]; if(!x) return;
+  pickedKey = favKey(x.row);
+  $('townSel').value = x.row.town; fillRoutes(); $('routeSel').value = String(x.ri);
+  renderNearPick(k); renderRoute(true);
+}
+function renderNearPick(active){
+  $('nearPick').hidden = false;
+  $('nearPick').innerHTML = nearList.map((x,k)=>`<button class="nearopt" data-near="${k}" aria-pressed="${k===active}">
+      <span class="rk">${k===0?'最近的路線':'第二近的路線'}</span>
+      <span class="rn">${esc(x.row.town)} ${esc(x.row.route)}</span>
+      <span class="rs">最近的點：${esc(x.row.name)}，${fmtDist(x.d)}</span>
+    </button>`).join('');
+}
+function findNearRoutes(){
+  nearList = nearestRoutes(2);
+  const msg = $('nearMsg');
+  if(!nearList.length || nearList[0].d>5000){
+    msg.textContent='你目前的位置離宜蘭縣的清運點太遠（超過 5 公里），請直接選鄉鎮市和路線。';
+    $('nearPick').hidden = true; return;
+  }
+  msg.textContent='依你的位置找到最近的兩條路線，點一下可以切換。';
+  pickRoute(0);
+}
+$('nearRouteBtn').addEventListener('click', ()=>{
+  if(here){ $('nearMsg').hidden=false; findNearRoutes(); return; }
+  locate($('nearMsg'), '請直接選鄉鎮市和路線。', findNearRoutes);
+});
+$('nearPick').addEventListener('click', e=>{ const b=e.target.closest('[data-near]'); if(b) pickRoute(+b.dataset.near); });
+
+// ---- 看整條路線 ----
+let selDay = nowInfo().wd;
+if(selDay===3||selDay===6) selDay = selDay+1;   // 停收日改看下一個收運日
+const CNUM = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+function routeOrder(name){
+  const m = name.match(/路線([一二三四五六七八九十]+)/); if(!m) return 99;
+  const s = m[1]; if(s.length===1) return CNUM[s];
+  if(s[0]==='十') return 10+(CNUM[s[1]]||0);
+  return CNUM[s[0]]*10+(CNUM[s[2]]||0);
+}
+function routesOfTown(t){ return D.routes.map((r,i)=>({r,i})).filter(x=>D.towns[x.r[0]]===t).sort((a,b)=>routeOrder(a.r[1])-routeOrder(b.r[1])||a.r[1].localeCompare(b.r[1],'zh-Hant')); }
+function fillRoutes(){
+  const t = $('townSel').value;
+  $('routeSel').innerHTML = routesOfTown(t).map(x=>`<option value="${x.i}">${esc(x.r[1])}</option>`).join('');
+}
+function renderDayChips(){
+  $('dayChips').innerHTML = [1,2,3,4,5,6,7].map(d=>{
+    const off = d===3||d===6;
+    return `<button class="chip${off?' off':''}" data-day="${d}" aria-pressed="${d===selDay}" aria-label="星期${DAYN[d]}${off?'（停收）':''}">${DAYN[d]}</button>`;
+  }).join('');
+}
+function renderRoute(scrollToMine){
+  renderDayChips();
+  const ri = +$('routeSel').value, n = nowInfo();
+  const rows = ROWS.filter(r=>r.ri===ri && has(r.mask, selDay)).sort((a,b)=>a.seq-b.seq||a.min-b.min);
+  const info = $('routeInfo'), tl = $('timeline');
+  if(selDay===3||selDay===6){ info.textContent='星期'+DAYN[selDay]+'全縣停收，這天沒有垃圾車。'; tl.innerHTML=''; return; }
+  if(!rows.length){ info.textContent='這條路線星期'+DAYN[selDay]+'沒有排班。'; tl.innerHTML=''; return; }
+  const isToday = selDay===n.wd;
+  const nextIdx = isToday ? rows.findIndex(r=>r.min>=n.min) : -1;
+  info.textContent = `車號 ${D.routes[ri][2]}，共 ${rows.length} 個點，表定 ${hm(rows[0].min)} 出發、${hm(rows[rows.length-1].min)} 收完。`
+    + (isToday ? (nextIdx===-1 ? '今天已經收完了。' : '黃色圓點是照表定時間，垃圾車接下來要到的點。') : '');
+  tl.innerHTML = rows.map((r,i)=>{
+    let cls = isToday ? (nextIdx===-1||i<nextIdx ? 'done' : i===nextIdx ? 'next' : '') : '';
+    const mine = pickedKey && favKey(r)===pickedKey;
+    if(mine) cls += ' mine';
+    return `<li class="${cls}"><span class="t">${hm(r.min)}</span><button class="s" data-detail="${esc(favKey(r))}">${esc(r.name)}</button>${mine?'<span class="here">離你最近的點</span>':''}${r.note?`<span class="badge">${esc(r.note)}</span>`:''}</li>`;
+  }).join('');
+  const target = scrollToMine===true ? tl.querySelector('li.mine') : (isToday && nextIdx>2 ? tl.children[nextIdx] : null);
+  if(target) requestAnimationFrame(()=>target.scrollIntoView({block:'center'}));
+}
+function manualRoute(){ if(nearList.length) renderNearPick(-1); renderRoute(); }
+$('townSel').addEventListener('change', ()=>{ fillRoutes(); manualRoute(); });
+$('routeSel').addEventListener('change', manualRoute);
+$('dayChips').addEventListener('click', e=>{ const b=e.target.closest('[data-day]'); if(!b) return; selDay=+b.dataset.day; renderRoute(); });
+
+// ---- detail sheet ----
+let lastFocus = null;
+function openDetail(k){
+  const rows = routeRowsFor(k); if(!rows.length) return;
+  const r0 = rows[0], n = nowInfo();
+  const weekRows = [1,2,3,4,5,6,7].map(d=>{
+    const hit = rows.filter(r=>has(r.mask,d)).sort((a,b)=>a.min-b.min);
+    const t = (d===3||d===6) ? '停收' : hit.length ? hit.map(r=>hm(r.min)).join('、') : '不收';
+    return `<tr class="${d===n.wd?'is-today':''}"><th scope="row">星期${DAYN[d]}${d===n.wd?'（今天）':''}</th><td class="tm">${t}</td></tr>`;
+  }).join('');
+  // neighbours on the route for the next service day
+  const nx = nextOf(rows);
+  let around = '';
+  if(nx){
+    const seqRows = ROWS.filter(r=>r.ri===r0.ri && has(r.mask,nx.wd)).sort((a,b)=>a.seq-b.seq||a.min-b.min);
+    const at = seqRows.findIndex(r=>r===nx.row);
+    const slice = seqRows.slice(Math.max(0,at-2), at+3);
+    around = `<div><strong>錯過了可以去追的前後站（星期${DAYN[nx.wd]}）</strong>
+      <ol class="timeline" style="margin-top:8px">${slice.map(r=>`<li class="${r===nx.row?'next':''}"><span class="t">${hm(r.min)}</span><span class="s">${esc(r.name)}${r===nx.row?'（這一站）':''}</span></li>`).join('')}</ol></div>`;
+  }
+  const map = `https://www.google.com/maps/search/?api=1&query=${r0.lat},${r0.lon}`;
+  $('sheetInner').innerHTML = `
+    <div class="card-head">
+      <div><div class="name" id="sheetTitle">${esc(r0.name)}</div><div class="meta">${esc(r0.town)} · ${esc(r0.route)} · 車號 ${esc(r0.car)}</div></div>
+      <button class="star" data-close aria-label="關閉">✕</button>
+    </div>
+    ${r0.note?`<div class="note">注意：${esc(r0.note)}</div>`:''}
+    <table class="week"><tbody>${weekRows}</tbody></table>
+    ${around}
+    <div class="actions">
+      <button class="btn primary" data-fav="${esc(k)}">${isFav(k)?'★ 已加入我的清運點（按一下移除）':'☆ 加入我的清運點'}</button>
+      <a class="btn" href="${map}" target="_blank" rel="noopener">在地圖上看位置</a>
+    </div>
+    <p class="hint">以上都是表定時間，實際可能前後有誤差。</p>`;
+  lastFocus = document.activeElement;
+  $('sheet').hidden = false;
+  $('sheetInner').querySelector('[data-close]').focus();
+}
+function closeDetail(){ $('sheet').hidden = true; if(lastFocus && lastFocus.focus) lastFocus.focus(); }
+$('sheet').addEventListener('click', e=>{ if(e.target.id==='sheet' || e.target.closest('[data-close]')) closeDetail(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('sheet').hidden) closeDetail(); });
+
+// ---- global clicks ----
+document.addEventListener('click', e=>{
+  const f = e.target.closest('[data-fav]');
+  if(f){ const k=f.dataset.fav; toggleFav(k); if(!$('sheet').hidden) openDetail(k); return; }
+  const d = e.target.closest('[data-detail]');
+  if(d){ openDetail(d.dataset.detail); return; }
+  const g = e.target.closest('[data-goto]');
+  if(g){ showTab(g.dataset.goto); }
+});
+
+// ---- tabs ----
+const TABS = {fav:['tab-fav','p-fav'], find:['tab-find','p-find'], route:['tab-route','p-route']};
+function showTab(name){
+  for(const [k,[t,p]] of Object.entries(TABS)){
+    const on = k===name;
+    $(t).setAttribute('aria-selected', on); $(p).hidden = !on;
+  }
+  try{ localStorage.setItem('ygt-tab', name); }catch(e){}
+}
+for(const [k,[t]] of Object.entries(TABS)) $(t).addEventListener('click', ()=>showTab(k));
+
+function renderAll(){ renderHeader(); renderFav(); renderFind(); renderRoute(); }
+
+// ---- init ----
+$('dataDate').textContent = D.updated;
+const townOpts = D.towns.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+$('townSel').innerHTML = townOpts;
+$('townFilter').innerHTML = '<option value="">全縣</option>' + townOpts;
+$('townSel').value = D.towns.includes('宜蘭市') ? '宜蘭市' : D.towns[0];
+fillRoutes();
+// start on 我的清運點 when the viewer has saved some, else show a full route so the page is useful at first glance
+showTab(favs.length ? 'fav' : 'route');
+renderAll();
+// if the viewer already allowed location before, find nearest routes without another tap
+try{
+  if(navigator.permissions && navigator.geolocation){
+    navigator.permissions.query({name:'geolocation'}).then(p=>{
+      if(p.state==='granted') locate($('nearMsg'), '請直接選鄉鎮市和路線。', ()=>{ findNearRoutes(); renderFind(); });
+    }).catch(()=>{});
+  }
+}catch(e){}
+setInterval(()=>{ renderHeader(); renderFav(); if(!$('p-find').hidden) renderFind(); }, 60000);
+})();
+</script>
