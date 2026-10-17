@@ -30,7 +30,8 @@
   --bg:#0e1a18;--surface:#162623;--ink:#e6efec;--muted:#9db3ad;--line:#2b403b;
   --truck:#f5c400;--truck-ink:#1d1a05;--go:#4fd1a5;--go-soft:#173a31;--stop:#ff8a6e;--stop-soft:#3a1f19;--focus:#7aa7ff;color-scheme:dark}
 
-html{font-size:125%;-webkit-text-size-adjust:100%}  /* 1rem = 20px：長輩友善的大字 */
+html{font-size:150%;-webkit-text-size-adjust:100%}  /* 1rem = 24px：長輩友善的大字 */
+html[data-size="xl"]{font-size:175%}            /* 特大字：1rem = 28px */
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:1.05rem;line-height:1.6}
@@ -41,8 +42,11 @@ button,select,input{font:inherit;color:inherit}
 
 /* header band */
 .band{background:var(--truck);color:var(--truck-ink)}
-.band .wrap{padding-block:18px 16px;display:grid;gap:4px}
-.band h1{margin:0;font-size:1.75rem;font-weight:900;letter-spacing:.02em;text-wrap:balance}
+.band .wrap{padding-block:18px 16px;display:grid;gap:8px}
+.sizes{display:flex;gap:8px}
+.sizes button{min-height:48px;padding:0 14px;border-radius:999px;border:2px solid var(--truck-ink);background:transparent;color:var(--truck-ink);font-weight:900;font-size:.85rem;cursor:pointer}
+.sizes button[aria-pressed="true"]{background:var(--truck-ink);color:var(--truck)}
+.band h1{margin:0;font-size:min(1.5rem,9.5vw);line-height:1.25;font-weight:900;letter-spacing:.02em;text-wrap:balance}
 .today{font-size:1.05rem;font-weight:700}
 .stripe{height:10px;background:repeating-linear-gradient(-45deg,var(--truck) 0 14px,var(--truck-ink) 14px 28px)}
 
@@ -63,8 +67,8 @@ section.panel{display:grid;gap:14px;padding-block:8px 24px}
 input[type=search],select{width:100%;min-height:60px;font-size:1.05rem;padding:0 14px;border:2px solid var(--line);border-radius:var(--r);background:var(--surface)}
 label.lab{font-weight:700;display:block;margin-bottom:6px}
 
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{min-height:52px;min-width:44px;padding:0 8px;font-size:1.05rem;border-radius:999px;border:2px solid var(--line);background:var(--surface);font-weight:700;cursor:pointer}
+.chips{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.chip{min-height:56px;min-width:0;padding:0;font-size:1rem;border-radius:999px;border:2px solid var(--line);background:var(--surface);font-weight:700;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .chip.off{color:var(--muted);text-decoration:line-through}
 
@@ -128,6 +132,10 @@ footer p{margin:0}
   <div class="wrap">
     <h1>宜蘭垃圾車幾點到</h1>
     <div class="today" id="today"></div>
+    <div class="sizes" role="group" aria-label="字體大小">
+      <button id="sizeL" data-size="l" aria-pressed="true">大字</button>
+      <button id="sizeXL" data-size="xl" aria-pressed="false">特大字</button>
+    </div>
   </div>
 </header>
 <div class="stripe" aria-hidden="true"></div>
@@ -136,9 +144,9 @@ footer p{margin:0}
   <div class="notice" id="notice" hidden></div>
 
   <div class="tabs" role="tablist" aria-label="查詢方式">
-    <button class="tab" role="tab" id="tab-fav" aria-controls="p-fav" aria-selected="false">我的清運點</button>
-    <button class="tab" role="tab" id="tab-find" aria-controls="p-find" aria-selected="false">找清運點</button>
-    <button class="tab" role="tab" id="tab-route" aria-controls="p-route" aria-selected="false">看整條路線</button>
+    <button class="tab" role="tab" id="tab-fav" aria-controls="p-fav" aria-selected="false">我的點</button>
+    <button class="tab" role="tab" id="tab-find" aria-controls="p-find" aria-selected="false">找附近</button>
+    <button class="tab" role="tab" id="tab-route" aria-controls="p-route" aria-selected="false">看路線</button>
   </div>
 
   <section class="panel" id="p-fav" role="tabpanel" aria-labelledby="tab-fav" hidden>
@@ -146,7 +154,7 @@ footer p{margin:0}
   </section>
 
   <section class="panel" id="p-find" role="tabpanel" aria-labelledby="tab-find" hidden>
-    <div class="row"><button class="btn primary" id="locBtn">用我現在的位置找</button></div>
+    <div class="row"><button class="btn primary" id="locBtn">找離我最近的清運點</button></div>
     <p class="hint" id="locMsg">或輸入路名、地標，例如「中山路」「宮」「國小」。</p>
     <div>
       <label class="lab" for="q">輸入路名或地標</label>
@@ -160,7 +168,7 @@ footer p{margin:0}
   </section>
 
   <section class="panel" id="p-route" role="tabpanel" aria-labelledby="tab-route" hidden>
-    <div class="row"><button class="btn primary" id="nearRouteBtn">用我的位置找最近的路線</button></div>
+    <div class="row"><button class="btn primary" id="nearRouteBtn">找離我最近的路線</button></div>
     <p class="hint" id="nearMsg" hidden></p>
     <div class="nearpick" id="nearPick" hidden></div>
     <div>
@@ -293,7 +301,7 @@ function renderFav(){
   const groups = favs.map(routeRowsFor).filter(g=>g.length);
   if(!groups.length){
     el.innerHTML = `<li class="empty"><strong>還沒有加入清運點</strong>
-      <span>到「找清運點」找到你家附近的點，按右邊的 ☆ 星號，下次打開就會直接顯示在這裡。</span>
+      <span>到「找附近」找到你家附近的點，按右邊的 ☆ 星號，下次打開就會直接顯示在這裡。</span>
       <div><button class="btn primary" data-goto="find">去找清運點</button></div></li>`;
     return;
   }
@@ -500,6 +508,16 @@ function showTab(name){
 for(const [k,[t]] of Object.entries(TABS)) $(t).addEventListener('click', ()=>showTab(k));
 
 function renderAll(){ renderHeader(); renderFav(); renderFind(); renderRoute(); }
+
+// ---- text size ----
+function applySize(sz){
+  if(sz==='xl') document.documentElement.setAttribute('data-size','xl'); else document.documentElement.removeAttribute('data-size');
+  $('sizeL').setAttribute('aria-pressed', sz!=='xl'); $('sizeXL').setAttribute('aria-pressed', sz==='xl');
+}
+let size = 'l';
+try{ size = localStorage.getItem('ygt-size') || 'l'; }catch(e){}
+applySize(size);
+for(const b of [$('sizeL'),$('sizeXL')]) b.addEventListener('click', ()=>{ applySize(b.dataset.size); try{ localStorage.setItem('ygt-size', b.dataset.size); }catch(e){} });
 
 // ---- init ----
 $('dataDate').textContent = D.updated;
